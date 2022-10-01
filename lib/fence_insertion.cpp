@@ -28,8 +28,10 @@ struct FenceInsertion : public ModulePass {
     if (!F)
       return 1;
     
-    for (Function::iterator FI = F->begin(); FI != F->end(); ++FI) {
-      for (BasicBlock::iterator BBI = FI->begin(); BBI != FI->end(); ++BBI) {
+    bool res = 0;
+    bool active = true;
+    for (Function::iterator FI = F->begin(); FI != F->end() && active; ++FI) {
+      for (BasicBlock::iterator BBI = FI->begin(); BBI != FI->end() && active; ++BBI) {
         //errs() << "Instruction: " << *BBI << "\n";
         //errs() << "OP: " << BBI->getOpcodeName() << "\n";
         if (llvm::isa <llvm::BranchInst> (BBI)) {
@@ -44,8 +46,9 @@ struct FenceInsertion : public ModulePass {
               llvm::IRBuilder<> builder(I);
               builder.SetInsertPoint(I);
               llvm::FenceInst *FI = builder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent);
-              llvm::errs() << "INSERTED FENCE: " << *FI << "\n";
-              break;
+              //llvm::errs() << "INSERTED FENCE: " << *FI << "\n";
+              res = 1;
+              active = false;
             }
           }
         }
@@ -54,6 +57,8 @@ struct FenceInsertion : public ModulePass {
     
     llvm::verifyFunction(*F);
     
+    llvm::errs() << res << "\n";
+
     return false;
   }
 
