@@ -9,6 +9,8 @@
 #include <llvm/Support/CommandLine.h>
 #include <llvm/IR/Verifier.h>
 
+#include <llvm/IR/InlineAsm.h>
+
 
 using namespace llvm;
 
@@ -25,8 +27,10 @@ struct FenceInsertion : public ModulePass {
   bool runOnModule(Module &M) override {
     llvm::StringRef FN = FuncName;
     Function *F = M.getFunction(FN);
-    if (!F)
+    if (!F) {
+      llvm::errs() << "23\n";
       return 1;
+    }
     
     bool res = 0;
     bool active = true;
@@ -36,17 +40,41 @@ struct FenceInsertion : public ModulePass {
         //errs() << "OP: " << BBI->getOpcodeName() << "\n";
         if (llvm::isa <llvm::BranchInst> (BBI)) {
           BranchInst *BC = cast<BranchInst> (BBI);
-          if(BC->isConditional()) {    
-            Instruction *PI = BC->getPrevNode();
-            if (llvm::isa <llvm::FenceInst> (PI)) {
-              continue;
-            } 
+          if(BC->isConditional()) {
+            BasicBlock *bb1 = BC->getSuccessor(0);
+            BasicBlock *bb2 = BC->getSuccessor(1);
+            //label1, label2
+            Instruction *bb1I = bb1->getFirstNonPHI();
+            Instruction *bb2I = bb2->getFirstNonPHI();
+            //llvm::errs() << "I1\n" << *bb1I << "\n";
+            //llvm::errs() << "I2\n" << *bb2I << "\n";
+            
+            LLVMContext &ctx= F->getParent()->getContext();
+            FunctionType *FT = FunctionType::get(Type::getVoidTy(ctx), false);
+            StringRef asmString = "dsb sy\nisb";
+            StringRef constraints;
+            llvm::InlineAsm *IA = llvm::InlineAsm::get(FT,asmString,constraints,true,false,InlineAsm::AD_ATT);
+            ArrayRef<Value *> Args = None;
+            
+            if (CallInst *callI1 = llvm::dyn_cast <llvm::CallInst> (bb1I)) {
+              if (callI1->isInlineAsm()) {
+                continue;
+              }
+            }
             else {
-              llvm::Instruction *I = &*BBI;
-              llvm::IRBuilder<> builder(I);
-              builder.SetInsertPoint(I);
-              llvm::FenceInst *FI = builder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent);
-              //llvm::errs() << "INSERTED FENCE: " << *FI << "\n";
+              llvm::IRBuilder<> builder1(bb1I);
+              llvm::CallInst *Ptr1 = builder1.CreateCall(IA,Args);
+              res = 1;
+              active = false;
+            }
+            if (CallInst *callI2 = llvm::dyn_cast <llvm::CallInst> (bb2I)) {
+              if (callI2->isInlineAsm()) {
+                continue;
+              }
+            }
+            else {
+              llvm::IRBuilder<> builder2(bb2I);
+              llvm::CallInst *Ptr2 = builder2.CreateCall(IA,Args);
               res = 1;
               active = false;
             }
