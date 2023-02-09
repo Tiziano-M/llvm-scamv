@@ -18,8 +18,8 @@ using namespace llvm;
 
 namespace {	
 struct ExtendLoopDeletion : public LoopPass {
-	static char ID;
-	ExtendLoopDeletion() : LoopPass(ID) {}
+  static char ID;
+  ExtendLoopDeletion() : LoopPass(ID) {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DominatorTreeWrapperPass>();
@@ -31,8 +31,8 @@ struct ExtendLoopDeletion : public LoopPass {
   }
 
 
-	virtual bool runOnLoop(Loop *L, LPPassManager &LPM) override {
-	  //auto *Preheader = L->getLoopPreheader();
+  virtual bool runOnLoop(Loop *L, LPPassManager &LPM) override {
+    //auto *Preheader = L->getLoopPreheader();
     auto *ExitBlock = L->getUniqueExitBlock();
     //if (!Preheader || !L->hasDedicatedExits())
     //  errs() << "Deletion requires Loop with preheader and dedicated exits.\n";
@@ -47,16 +47,16 @@ struct ExtendLoopDeletion : public LoopPass {
     
     SE.forgetLoop(L);
     // Set incoming value to poison for phi nodes in the exit block.
-    for (PHINode &P : ExitBlock->phis()) {
+    /*for (PHINode &P : ExitBlock->phis()) {
       std::fill(P.incoming_values().begin(), P.incoming_values().end(), PoisonValue::get(P.getType()));
-    }
+    }*/
     
     //breakLoopBackedge(L, DT, SE, LI, MSSA);
     deleteDeadLoop(L, &DT, &SE, &LI, MSSA);
     LPM.markLoopAsDeleted(*L);
 
     return false;
-	}
+  }
 
 };
 }
