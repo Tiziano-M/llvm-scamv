@@ -1,4 +1,4 @@
-add_llvm_library(LLVMScamv MODULE
+add_library(LLVMScamv MODULE
 	print_functions.cpp
 	print_globals.cpp
 	rename_bbs.cpp
