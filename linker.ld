@@ -7,7 +7,12 @@ SECTIONS
 .text : { *(.text) }
 
 . = ALIGN(8);
-. = 0x80100000;
+/*
+ * Check also these files:
+ * https://github.com/kth-step/EmbExp-ProgPlatform/blob/master/board/rpi4/rpi4.ld#L19
+ * https://github.com/kth-step/HolBA/blob/master/src/tools/scamv/persistence/experimentsLib.sml#L282
+ */
+. = 0x80200000;
 .data : { *(.data) }
 .bss : { *(.bss) }
 
