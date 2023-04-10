@@ -6,4 +6,5 @@ add_llvm_library(LLVMScamv MODULE
   automatic_block_specifier.cpp
   fence_insertion.cpp
   extend_loop_deletion.cpp
+  check_loops.cpp
   )
