@@ -7,4 +7,5 @@ add_llvm_library(LLVMScamv MODULE
   fence_insertion.cpp
   extend_loop_deletion.cpp
   check_loops.cpp
+  add_aarch64_slh_attribute.cpp
   )

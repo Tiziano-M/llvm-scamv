@@ -10,6 +10,8 @@
 #include <llvm/IR/Verifier.h>
 
 #include <llvm/IR/InlineAsm.h>
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/ADT/Triple.h"
 
 
 using namespace llvm;
@@ -27,11 +29,22 @@ struct FenceInsertion : public ModulePass {
   bool runOnModule(Module &M) override {
     llvm::StringRef FN = FuncName;
     Function *F = M.getFunction(FN);
+    StringRef fenceString;
     if (!F) {
       llvm::errs() << "23\n";
       return 1;
     }
-    
+
+    llvm::Triple targetTriple(M.getTargetTriple());
+    llvm::Triple::ArchType archType = targetTriple.getArch();
+    //errs() << "Architecture type: " << targetTriple.getArchTypeName(archType) << "\n";
+    if (targetTriple.getArchTypeName(archType) == "aarch64") {
+      fenceString = "dsb sy\nisb";
+    }
+    else {
+      return 1;
+    }
+
     bool res = 0;
     bool active = true;
     for (Function::iterator FI = F->begin(); FI != F->end() && active; ++FI) {
@@ -51,7 +64,7 @@ struct FenceInsertion : public ModulePass {
             
             LLVMContext &ctx= F->getParent()->getContext();
             FunctionType *FT = FunctionType::get(Type::getVoidTy(ctx), false);
-            StringRef asmString = "dsb sy\nisb";
+            StringRef asmString = fenceString;
             StringRef constraints;
             llvm::InlineAsm *IA = llvm::InlineAsm::get(FT,asmString,constraints,true,false,InlineAsm::AD_ATT);
             ArrayRef<Value *> Args = None;
