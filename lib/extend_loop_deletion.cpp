@@ -51,8 +51,8 @@ struct ExtendLoopDeletion : public LoopPass {
       std::fill(P.incoming_values().begin(), P.incoming_values().end(), PoisonValue::get(P.getType()));
     }*/
     
-    //breakLoopBackedge(L, DT, SE, LI, MSSA);
-    deleteDeadLoop(L, &DT, &SE, &LI, MSSA);
+    breakLoopBackedge(L, DT, SE, LI, MSSA);
+    //deleteDeadLoop(L, &DT, &SE, &LI, MSSA);
     LPM.markLoopAsDeleted(*L);
 
     return false;

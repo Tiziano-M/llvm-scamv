@@ -12,7 +12,6 @@
 
 
 
-
 using namespace llvm;
 
 
@@ -26,6 +25,10 @@ static cl::opt<unsigned> Threshold("t",
                                    cl::value_desc("threshold"),
                                    cl::Hidden);
 
+static cl::opt<bool> SuccessorTraversal("test-st",
+                                        cl::desc("test"),
+                                        cl::Hidden);
+
 namespace {  
 struct AutomaticBlockSpecifier : public ModulePass {
   static char ID;
@@ -37,56 +40,42 @@ struct AutomaticBlockSpecifier : public ModulePass {
     if (!F || !Threshold) {
       return 1;
     }
-    
 
     std::string res_str;
     
     for (Function::iterator I = F->begin(), E = F->end(); I != E; ++I) {
       //errs() << "\n\nIteration of " << I->getName() << "\n";
       
-      llvm::SmallVector<BasicBlock *, 32> BBs;
-      
-      unsigned NInsts = 0;
-      for (Function::iterator BB = I, BE = F->end(); BB != BE; ++BB) {
-        //errs() << "Basic block (name=" << BB->getName() << ") has " << BB->size() << " instructions.\n";
+      if (not SuccessorTraversal) {
+        llvm::SmallVector<BasicBlock *, 32> BBs;
         
-        NInsts += BB->size();
-        if (NInsts <= Threshold) {
-          BasicBlock *bb = &*BB;
-          BBs.push_back(bb);
-        }
-        else {
-          break;
-        }
-      }
-      //errs() << "SmallVector size: " << BBs.size() << "\n";
-      
-      if (!BBs.empty()) {
-        CodeExtractorAnalysisCache CEAC(*BBs[0]->getParent()); //*F
-        llvm::CodeExtractor CE(BBs);
-        //errs() << "Is the extraction eligible? " << (CE.isEligible() ? "true": "false") << "\n";
-        
-        if (CE.isEligible()) {
-          //errs() << "\nResult:\n";
-          //errs() << FN << ":";
-          std::vector<std::string> bbs_str;
+        unsigned NInsts = 0;
+        for (Function::iterator BB = I, BE = F->end(); BB != BE; ++BB) {
+          //errs() << "Basic block (name=" << BB->getName() << ") has " << BB->size() << " instructions.\n";
           
-          for (auto *BB : BBs){
-            //errs() << BB->getName() << ";";
-            if (!BB->getName().empty())
-              bbs_str.push_back(BB->getName().str());
+          NInsts += BB->size();
+          if (NInsts <= Threshold) {
+            BasicBlock *bb = &*BB;
+            BBs.push_back(bb);
           }
-          //errs() << "\n";
-          if (!bbs_str.empty()) {
-            res_str.append(FN) ;
-            res_str.append(":");
-            for (auto bb : bbs_str) {
-              res_str.append(bb);
-              res_str.append(";");
-            }
-            res_str.append("\n");
+          else {
+            break;
           }
         }
+        //errs() << "SmallVector size: " << BBs.size() << "\n";
+
+        res_str = printSpecifiedBasicBlocks(res_str, BBs, FN);
+      }
+      else {        
+        llvm::SmallVector<llvm::BasicBlock *, 32> BBs;
+        BasicBlock *bb = dyn_cast<BasicBlock>(&*I);
+        BBs.push_back(bb);
+        BBs = getSuccessors(BBs, bb);
+        std::sort(BBs.begin(), BBs.end());
+        auto last = std::unique(BBs.begin(), BBs.end());
+        BBs.erase(last, BBs.end());
+
+        res_str = printSpecifiedBasicBlocks(res_str, BBs, FN);
       }
     }
 
@@ -96,7 +85,57 @@ struct AutomaticBlockSpecifier : public ModulePass {
 
     return false;
   }
+  
+  llvm::SmallVector<BasicBlock *, 32> getSuccessors(llvm::SmallVector<BasicBlock *, 32> SuccList, BasicBlock *bb) {
+    unsigned ni = 0;
+    for (llvm::SmallVector<BasicBlock *, 32>::iterator IT = SuccList.begin(), IE = SuccList.end(); IT != IE; ++IT) {
+      BasicBlock *BBIT = cast<BasicBlock>(*IT);
+      ni += BBIT->size();
+    }
+    
+    for (BasicBlock *SBB : successors(bb)) {
+      ni += SBB->size();
+      if (ni <= Threshold) {
+        SuccList.push_back(SBB);
+        SuccList = getSuccessors(SuccList, SBB);
+      }
+      else {
+        break;
+      }
+    }
+    return SuccList;
+  }
 
+  std::string printSpecifiedBasicBlocks(std::string out, llvm::SmallVector<BasicBlock *, 32> bbs, llvm::StringRef fn) {
+    if (!bbs.empty()) {
+        CodeExtractorAnalysisCache CEAC(*bbs[0]->getParent()); //*F
+        llvm::CodeExtractor CE(bbs);
+        //errs() << "Is the extraction eligible? " << (CE.isEligible() ? "true": "false") << "\n";
+        
+        if (CE.isEligible()) {
+          //errs() << "\nResult:\n";
+          //errs() << fn << ":";
+          std::vector<std::string> bbs_str;
+          
+          for (auto *BB : bbs){
+            //errs() << BB->getName() << ";";
+            if (!BB->getName().empty())
+              bbs_str.push_back(BB->getName().str());
+          }
+          //errs() << "\n";
+          if (!bbs_str.empty()) {
+            out.append(fn) ;
+            out.append(":");
+            for (auto bb : bbs_str) {
+              out.append(bb);
+              out.append(";");
+            }
+            out.append("\n");
+          }
+        }
+    }
+    return out;
+  }
 
 };
 }
